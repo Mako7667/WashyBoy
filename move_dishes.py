@@ -151,7 +151,7 @@ if __name__ == "__main__":
     ap.add_argument("--camera", type=int, default=1, help="wrist camera index; -1 = no camera")
     ap.add_argument("--ignore-camera", action="store_true", help="grab even if no dish is seen")
     ap.add_argument("--leader", nargs="?", const="auto", help="teach with the black leader arm (port or auto)")
-    ap.add_argument("--mirror", action="store_true", help="flip left/right (arms facing each other)")
+    ap.add_argument("--no-mirror", dest="mirror", action="store_false", help="turn off left/right mirroring (on by default)")
     ap.add_argument("--hz", type=int, default=60, help="leader-follow update rate")
     a = ap.parse_args()
     leader_port = a.leader
