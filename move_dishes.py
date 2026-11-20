@@ -109,6 +109,50 @@ def check(arm, spot):
     print(f"Holding at spot {spot}. Are the open jaws around the dish rim? (motors stay on)")
 
 
+PLATE_HSV = {  # OpenCV HSV ranges (H 0-179)
+    "yellow": ((18, 80, 120), (38, 255, 255)),
+    "blue": ((95, 120, 60), (130, 255, 255)),
+}
+
+
+def find_plate(frame, color="yellow"):
+    """Largest bright-coloured blob (the 3D-printed plate). Returns (cx, cy, area_px) or None."""
+    import cv2
+    lo, hi = PLATE_HSV[color]
+    hsv = cv2.cvtColor(cv2.GaussianBlur(frame, (5, 5), 0), cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, np.array(lo), np.array(hi))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    cs, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not cs:
+        return None
+    c = max(cs, key=cv2.contourArea)
+    area = cv2.contourArea(c)
+    if area < 800:
+        return None
+    m = cv2.moments(c)
+    return m["m10"] / m["m00"], m["m01"] / m["m00"], area
+
+
+def see_plate(cap, label, color="yellow"):
+    """Judge camera: where is the coloured plate? Saves an annotated seen_<label>.png."""
+    import cv2
+    if cap is None:
+        return None
+    for _ in range(3):
+        cap.read()
+    ok, f = cap.read()
+    if not ok:
+        return None
+    p = find_plate(f, color)
+    if p:
+        cv2.circle(f, (int(p[0]), int(p[1])), 8, (0, 0, 255), -1)
+    cv2.putText(f, f"{label}: {color} plate {'at %d,%d' % (p[0], p[1]) if p else 'NOT seen'}", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+    cv2.imwrite(f"seen_{label}.png", f)
+    print(f"  camera {label}: {color} plate {'at (%d, %d), %d px' % p if p else 'not seen'}")
+    return p
+
+
 def see_dish(cap, label):
     """Wrist camera check: find round dish rims in view. Saves seen_<label>.png. Returns count."""
     import cv2
@@ -165,6 +209,8 @@ def run(arm, a):
     def grip_values(spot):
         """Open/close based on the jaw opening TAUGHT at this spot (dish width)."""
         g = spot["gripper"]
+        if a.plate != "none" and a.open is None:
+            return 100.0, a.closed if a.closed is not None else max(0.0, g - a.squeeze)  # wide open around the square
         opening = a.open if a.open is not None else min(100.0, g + a.open_margin)
         closed = a.closed if a.closed is not None else max(0.0, g - a.squeeze)
         return opening, closed
@@ -199,6 +245,7 @@ def run(arm, a):
             continue
         holding = False
         before = see_dish(judge, f"judge_{src}_before")
+        plate_before = see_plate(cap if judge is None else judge, f"plate_{src}_before", a.plate) if a.plate != "none" else None
         for attempt in range(1, a.attempts + 1):
             g_closed = a.closed if a.closed is not None else max(0.0, S["gripper"] - squeeze)
             go(arm, S, t * 0.75)
@@ -221,6 +268,13 @@ def run(arm, a):
             # Improve: open, squeeze a bit more next time (gripper already at the taught grip pose).
             arm.set_gripper(g_open)
             squeeze = min(squeeze + a.squeeze_step, S["gripper"])
+        if a.plate != "none":
+            plate_after = see_plate(cap if judge is None else judge, f"plate_{src}_after", a.plate)
+            if plate_before and (not plate_after or np.hypot(plate_after[0] - plate_before[0],
+                                                             plate_after[1] - plate_before[1]) > 25):
+                print(f"  camera judge: {a.plate} plate moved/lifted -> GRAB WORKED")
+            elif plate_before:
+                print(f"  camera judge: {a.plate} plate did NOT move -> grab missed (re-teach spot {src} around the plate)")
         after = see_dish(judge, f"judge_{src}_after")
         if before >= 0 and after >= 0:
             print(f"  judge camera: {before} -> {after} round objects ({'dish lifted' if after < before else 'unclear'})")
@@ -252,6 +306,7 @@ if __name__ == "__main__":
     ap.add_argument("--attempts", type=int, default=2, help="grip tries per dish before skipping")
     ap.add_argument("--only", nargs="+", help="teach only these spots, e.g. --only 1 A")
     ap.add_argument("--pairs", default="1A,2B", help="moves to run, e.g. 1A or 1A,2B")
+    ap.add_argument("--plate", default="yellow", choices=["yellow", "blue", "none"], help="grab around this coloured plate (opens fully; camera judges by colour)")
     ap.add_argument("--squeeze-step", type=float, default=4, help="extra squeeze %% after a failed grip")
     ap.add_argument("--stall-margin", type=float, default=1.0, help="gripper stops this far above target = holding")
     ap.add_argument("--lift", type=float, default=0.06)
