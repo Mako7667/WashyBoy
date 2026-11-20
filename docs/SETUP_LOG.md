@@ -116,6 +116,7 @@ At the start, Python was not installed; only the Microsoft Store shortcut existe
 - **Remotes:** `origin` is now `Mako7667/WashyBoy`, where we push. `upstream` is `MakOltz/WashyBoy`, which we can still pull from.
 - **Pushed `main`:** the original "Initial commit" plus the project commit. Commits use GitHub's no-reply email address.
 - **To give teammates access:** on GitHub, open the repo's **Settings → Collaborators → Add people**.
+- **Made the repository public** at the user's request, with `gh repo edit --visibility public`. Before that, the repo was scanned for tokens, passwords and email addresses; none were found. It is now at https://github.com/Mako7667/WashyBoy. Anyone can read and clone it; only collaborators can push.
 
 ---
 
