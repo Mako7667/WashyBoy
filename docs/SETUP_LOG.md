@@ -111,6 +111,11 @@ At the start, Python was not installed; only the Microsoft Store shortcut existe
 - **Target repository:** `MakOltz/WashyBoy` (public). It contained only `README.md` (`# WashyBoy`).
 - **Status:** the logged-in account has **read-only** access to this repo, so pushing needs the owner to grant write access (Settings → Collaborators).
 - **Not committed:** `data/` and `SO-ARM100/` (large, downloadable). No passwords, tokens or email addresses are in the repo.
+- **Write access to `MakOltz/WashyBoy` never came through:** the account stayed read-only, with no pending invite.
+- **Created our own repository instead:** **`Mako7667/WashyBoy`** (private), with `gh repo create Mako7667/WashyBoy --private`.
+- **Remotes:** `origin` is now `Mako7667/WashyBoy`, where we push. `upstream` is `MakOltz/WashyBoy`, which we can still pull from.
+- **Pushed `main`:** the original "Initial commit" plus the project commit. Commits use GitHub's no-reply email address.
+- **To give teammates access:** on GitHub, open the repo's **Settings → Collaborators → Add people**.
 
 ---
 
