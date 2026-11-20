@@ -18,6 +18,13 @@ Layer 1 also produces the training data for layer 2, so no leader arm is require
 - **The printed markers:** run `python make_markers.py`, print `markers_A4.pdf` at **100% / actual size**, and check that a black square measures 40 mm.
 - Even, steady lighting. Avoid direct sunlight and moving shadows.
 
+### Camera on the side of the arm (your setup)
+A camera fixed to the **left side** of the arm works. It doesn't have to be overhead.
+- **Mount it high,** looking down at the work area: the higher, the better. Aim for at least 40 cm up.
+- **Raise markers 0–3 to plate height:** tape each onto a spare plate or a 12.4 mm block, then answer **y** in the wizard. Without this, a side view misplaces plate centres by about 10–20 mm because of parallax. Raised markers remove that error completely in simulation.
+- **Print bigger markers:** `python make_markers.py --size 55`. They look smaller and squashed from the side.
+- **Make sure the `home` pose clears the camera's view,** so the arm doesn't hide the plates.
+
 ### Lay out the table
 ```
             camera (above, looking down)

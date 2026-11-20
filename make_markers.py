@@ -9,15 +9,21 @@ Output: markers_A4.pdf (print at 100% / "actual size", NOT "fit to page") and ma
 After printing, measure one black square with a ruler: it should be 40 mm.
 """
 
+import argparse
+
 import cv2
 import numpy as np
 from PIL import Image
 
 from vision import STATION_IDS, TABLE_IDS, _DICT
 
+ap = argparse.ArgumentParser()
+ap.add_argument("--size", type=int, default=40, choices=range(30, 61), metavar="30-60",
+                help="marker size in mm (use 55-60 for a camera viewing from the side)")
+MARKER_MM = ap.parse_args().size
+
 DPI = 300
 MM = DPI / 25.4
-MARKER_MM = 40
 LABELS = {0: "TABLE 0", 1: "TABLE 1", 2: "TABLE 2", 3: "TABLE 3"}
 LABELS.update({k: v.upper().replace("_", " ") for k, v in STATION_IDS.items()})
 

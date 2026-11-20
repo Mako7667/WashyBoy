@@ -21,7 +21,7 @@ import cv2
 import numpy as np
 
 import vision
-from petri_arm import POSES_FILE, PetriArm
+from petri_arm import PLATE_HEIGHT_M, POSES_FILE, PetriArm
 from recalibrate import find_arm_port
 
 SETUP_FILE = Path(__file__).with_name("robot_setup.json")
@@ -70,9 +70,12 @@ def teach_home(arm: PetriArm):
     print(f"  Saved home: { {k: round(v, 1) for k, v in arm.poses['home'].items()} }")
 
 
-def touch_markers(arm: PetriArm) -> float:
+def touch_markers(arm: PetriArm, raised: bool) -> float:
     print("\n[3/4] Table markers. Tape markers 0-3 near the corners of the work area, all inside")
     print("  the camera view and within ~30 cm of the robot base. Tape them down flat.")
+    if raised:
+        print("  Markers are RAISED to plate height (on spare plates / 12.4 mm blocks): touch the")
+        print("  marker paper itself, on top of the block.")
     input("  Press Enter to turn torque OFF (hold the arm)...")
     arm.robot.bus.disable_torque()
     markers, zs = {}, []
@@ -98,7 +101,7 @@ def touch_markers(arm: PetriArm) -> float:
         arm.robot.bus.enable_torque()
         cv2.destroyAllWindows()
     vision.save_table_markers(markers)
-    table_z = float(np.median(zs))
+    table_z = float(np.median(zs)) - (PLATE_HEIGHT_M if raised else 0.0)
     if np.ptp(zs) > 0.015:
         print(f"  WARNING: marker heights differ by {np.ptp(zs) * 1000:.0f} mm - is the table level / tip touching?")
     print(f"  Table height in arm frame: {table_z:.3f} m. Saved table_markers.json")
@@ -135,7 +138,12 @@ def main():
     with PetriArm(port=setup["port"], camera_index=setup["camera_index"]) as arm:
         if not args.markers_only:
             teach_home(arm)
-        setup["table_z"] = touch_markers(arm)
+        print("\nIs the camera at an angle (e.g. on the side of the arm) rather than straight overhead?")
+        print("If so, raise markers 0-3 to plate height (tape each onto a spare plate or a 12.4 mm")
+        print("block). This removes parallax error on the plate tops (~12 mm at 45 degrees).")
+        raised = input("Are markers 0-3 raised to plate height? [y/N]: ").strip().lower() == "y"
+        setup["markers_raised"] = raised
+        setup["table_z"] = touch_markers(arm, raised)
         save_setup(setup)
         live_check(arm)
         input("\nSetup done. Hold the arm, then press Enter to switch the motors off...")

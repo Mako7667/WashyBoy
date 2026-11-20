@@ -178,6 +178,24 @@ At the start, Python was not installed; only the Microsoft Store shortcut existe
 
 The two can coexist; which to use depends on where the camera is mounted.
 
+## 12. Side-mounted camera
+The user confirmed the camera will be fixed on the **left side** of the arm, not overhead or on the wrist.
+
+**Problem: parallax.** The camera sees plate tops 12.4 mm above the table, so an angled view shifts them.
+
+**Simulation** (pinhole camera, 30 random plates):
+
+| Camera position | View angle | Markers on table | Markers raised 12.4 mm |
+|---|---|---|---|
+| 45 cm out, 35 cm up | 52° | 17.3 mm median error | 0.0 mm |
+| 40 cm out, 55 cm up | 36° | 9.7 mm median error | 0.0 mm |
+
+**Fix:**
+- The setup wizard now asks whether markers 0–3 are raised to plate height, and subtracts 12.4 mm when working out the table height.
+- `make_markers.py --size` allows 30–60 mm markers; the sheet was regenerated at 55 mm.
+
+**Already built on existing projects:** LeRobot (motors, cameras, datasets, training), OpenCV (ArUco markers and contours), placo (IK) and the SO-ARM100 URDF. No further libraries were added before the 3:30 deadline, to avoid new risk.
+
 ---
 
 ## Open items / next steps
