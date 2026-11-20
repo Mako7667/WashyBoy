@@ -113,27 +113,47 @@ def see_dish(cap, label):
 def run(arm, a):
     spots = json.loads(SPOTS_FILE.read_text())
     t = 2.0 / a.speed
+
+    # Gentle gripper: cap the gripper motor's force (LeRobot's default is 50% = 500).
+    with arm.robot.bus.torque_disabled("gripper"):  # only the gripper relaxes for a moment
+        arm.robot.bus.write("Max_Torque_Limit", "gripper", int(a.grip_force * 10))
+    print(f"Gripper force limited to {a.grip_force:.0f}%")
+
     cap = None
-    if a.camera >= 0:
+    if a.camera >= 0 or a.camera == -2:
         import cv2
-        cap = cv2.VideoCapture(a.camera)
-        if not cap.isOpened():
-            print("Camera not available - running without camera checks")
-            cap = None
+        for idx in ([a.camera] if a.camera >= 0 else []) + [3, 2, 1, 0]:  # auto: try others too
+            c = cv2.VideoCapture(idx)
+            if c.isOpened() and c.read()[0]:
+                cap = c
+                print(f"Wrist camera: index {idx}")
+                break
+            c.release()
+        if cap is None:
+            print("No working camera - running without camera checks")
+
+    def grip_values(spot):
+        """Open/close based on the jaw opening TAUGHT at this spot (dish width)."""
+        g = spot["gripper"]
+        opening = a.open if a.open is not None else min(100.0, g + a.open_margin)
+        closed = a.closed if a.closed is not None else max(0.0, g - a.squeeze)
+        return opening, closed
+
     for src, dst in [("1", "A"), ("2", "B")]:
-        print(f"Moving dish {src} -> {dst}")
         S, D = spots[src], spots[dst]
-        arm.set_gripper(a.open)
+        g_open, g_closed = grip_values(S)
+        print(f"Moving dish {src} -> {dst}  (gripper open {g_open:.0f}%, close to {g_closed:.0f}%)")
+        arm.set_gripper(g_open)
         go(arm, above(arm, S, a.lift), t)
         if see_dish(cap, f"spot{src}") == 0 and not a.ignore_camera:
             print(f"  No dish seen at spot {src} - skipping it (use --ignore-camera to grab anyway)")
             continue
         go(arm, S, t * 0.75)
-        arm.close_gripper(a.closed)
+        arm.move_joints(duration=1.2, gripper=g_closed)  # close slowly so the dish centres itself
         go(arm, above(arm, S, a.lift), t * 0.75)
         go(arm, above(arm, D, a.lift), t)
         go(arm, D, t * 0.75)
-        arm.set_gripper(a.open)
+        arm.set_gripper(g_open)
         go(arm, above(arm, D, a.lift), t * 0.75)
         n = see_dish(cap, f"spot{dst}")
         if n == 0:
@@ -148,11 +168,14 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", choices=["teach", "run"])
     ap.add_argument("--port", default="COM5")
-    ap.add_argument("--open", type=float, default=60)
-    ap.add_argument("--closed", type=float, default=20)
+    ap.add_argument("--open", type=float, default=None, help="fixed open %% (default: taught opening + margin)")
+    ap.add_argument("--closed", type=float, default=None, help="fixed closed %% (default: taught opening - squeeze)")
+    ap.add_argument("--open-margin", type=float, default=15, help="open this much wider than taught before descending")
+    ap.add_argument("--squeeze", type=float, default=6, help="close this much past the taught opening")
+    ap.add_argument("--grip-force", type=float, default=25, help="gripper motor force limit %% (LeRobot default 50)")
     ap.add_argument("--lift", type=float, default=0.06)
     ap.add_argument("--speed", type=float, default=1.0)
-    ap.add_argument("--camera", type=int, default=1, help="wrist camera index; -1 = no camera")
+    ap.add_argument("--camera", type=int, default=-2, help="wrist camera index; -2 = auto, -1 = no camera")
     ap.add_argument("--ignore-camera", action="store_true", help="grab even if no dish is seen")
     ap.add_argument("--leader", nargs="?", const="auto", help="teach with the black leader arm (port or auto)")
     a = ap.parse_args()
