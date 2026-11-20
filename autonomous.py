@@ -1,4 +1,4 @@
-"""
+﻿"""
 autonomous.py - camera-driven WashyBoy loop. Needs setup_wizard.py to have been run once.
 
   Loop:  park at home (out of view) -> camera looks at the table -> pick the nearest dirty
@@ -76,7 +76,7 @@ def main():
     table_z = setup["table_z"]
     plate_top = table_z + PLATE_HEIGHT_M
 
-    with PetriArm(port=setup["port"], camera_index=setup["camera_index"]) as arm:
+    with PetriArm(port=setup["port"], camera_index=setup["camera_index"], camera_rotation=setup.get("camera_rotation", 0)) as arm:
         rec = None
         if args.record:
             from recorder import EpisodeRecorder

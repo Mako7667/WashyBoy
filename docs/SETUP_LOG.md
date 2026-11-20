@@ -196,6 +196,18 @@ The user confirmed the camera will be fixed on the **left side** of the arm, not
 
 **Already built on existing projects:** LeRobot (motors, cameras, datasets, training), OpenCV (ArUco markers and contours), placo (IK) and the SO-ARM100 URDF. No further libraries were added before the 3:30 deadline, to avoid new risk.
 
+## 13. Camera plugged in, first powered arm motion
+**Cameras:**
+- Camera 0 is the laptop webcam; **camera 1 is the robot camera**.
+- Its frame is **rotated 90°** (mounted sideways), sits **low**, mostly sees the room, window and arm, and has strong window backlight. The work area is only a thin strip.
+- **Added `camera_rotation`** to `PetriArm` and saved `robot_setup.json` with port COM5, camera 1, rotation 90.
+- LeRobot wants the frame size *after* rotation (480×640). The first attempt failed on this and was fixed.
+
+**`test_move.py`:** small relative moves (base ±10°, gripper open/close, return) with a 5° safety clamp. Motors stay on afterwards (`disable_torque_on_disconnect=False`), so the arm doesn't drop.
+- **Run 1:** base 11.3 → 21.1 → 1.8 → 11.0°. The gripper reached 40.6% because the clamp limited the speed. Returned within 0.4°.
+- **Run 2:** same result, within 0.4°.
+- **Loop mode** (`--loops 0`, stop with Ctrl+C): gripper move slowed to 2.5 s, now reaches 59.6%. Loop 1 returned within 0.5°.
+
 ---
 
 ## Open items / next steps

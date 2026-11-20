@@ -1,4 +1,4 @@
-"""
+﻿"""
 setup_wizard.py - one-time guided setup for camera-driven WashyBoy. Run in a normal console
 window (setup_wizard.bat), not inside an IDE terminal.
 
@@ -135,7 +135,7 @@ def main():
         setup["camera_index"] = choose_camera()
     save_setup(setup)
 
-    with PetriArm(port=setup["port"], camera_index=setup["camera_index"]) as arm:
+    with PetriArm(port=setup["port"], camera_index=setup["camera_index"], camera_rotation=setup.get("camera_rotation", 0)) as arm:
         if not args.markers_only:
             teach_home(arm)
         print("\nIs the camera at an angle (e.g. on the side of the arm) rather than straight overhead?")

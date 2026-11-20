@@ -50,6 +50,7 @@ class PetriArm:
         camera_width: int = 640,
         camera_height: int = 480,
         camera_fps: int = 30,
+        camera_rotation: int = 0,
         urdf_path: str | None = str(Path(__file__).with_name("SO-ARM100") / "Simulation/SO101/so101_new_calib.urdf"),
         max_step_deg: float = 10.0,
     ):
@@ -62,10 +63,15 @@ class PetriArm:
         """
         cameras = {}
         if camera_index is not None:
+            from lerobot.cameras import Cv2Rotation
             from lerobot.cameras.opencv import OpenCVCameraConfig
 
-            cameras["cam"] = OpenCVCameraConfig(
-                index_or_path=camera_index, fps=camera_fps, width=camera_width, height=camera_height
+            # camera_rotation: 0, 90 (clockwise), 180 or 270, for a camera mounted sideways
+            rot = {0: Cv2Rotation.NO_ROTATION, 90: Cv2Rotation.ROTATE_90,
+                   180: Cv2Rotation.ROTATE_180, 270: Cv2Rotation.ROTATE_270}[camera_rotation]
+            w, h = (camera_height, camera_width) if camera_rotation in (90, 270) else (camera_width, camera_height)
+            cameras["cam"] = OpenCVCameraConfig(  # LeRobot wants the size AFTER rotation
+                index_or_path=camera_index, fps=camera_fps, width=w, height=h, rotation=rot,
             )
 
         self.robot = SO101Follower(
