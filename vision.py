@@ -26,13 +26,39 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-TABLE_IDS = (0, 1, 2, 3)
-STATION_IDS = {10: "clean_station", 11: "stack"}
 PLATE_SIDE_M = 0.070
 MARKERS_FILE = Path(__file__).with_name("table_markers.json")
+MARKER_CONFIG_FILE = Path(__file__).with_name("marker_config.json")
 
-_DICT = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+# Defaults match make_markers.py. To use other printed markers (any ArUco/AprilTag family,
+# any IDs), create marker_config.json, e.g.
+#   {"dictionary": "DICT_APRILTAG_36h11", "table_ids": [5, 6, 7, 8], "stack_id": 20, "clean_id": 21}
+# Run `python vision.py --scan` with the paper in front of the camera to find family and IDs.
+_cfg = {"dictionary": "DICT_4X4_50", "table_ids": [0, 1, 2, 3], "stack_id": 11, "clean_id": 10}
+if MARKER_CONFIG_FILE.exists():
+    _cfg.update(json.loads(MARKER_CONFIG_FILE.read_text(encoding="utf-8-sig")))
+TABLE_IDS = tuple(_cfg["table_ids"])
+STATION_IDS = {_cfg["clean_id"]: "clean_station", _cfg["stack_id"]: "stack"}
+
+_DICT = cv2.aruco.getPredefinedDictionary(getattr(cv2.aruco, _cfg["dictionary"]))
 _DETECTOR = cv2.aruco.ArucoDetector(_DICT, cv2.aruco.DetectorParameters())
+
+
+def scan_dictionaries(bgr_frames) -> list[tuple[str, int, list[int]]]:
+    """Try every ArUco/AprilTag family OpenCV knows; return (family, detections, ids) best first."""
+    out = []
+    for name in [n for n in dir(cv2.aruco) if n.startswith("DICT_")]:
+        det = cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(getattr(cv2.aruco, name)),
+                                      cv2.aruco.DetectorParameters())
+        count, ids = 0, set()
+        for f in bgr_frames:
+            _, found, _ = det.detectMarkers(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY))
+            if found is not None:
+                count += len(found)
+                ids |= {int(i) for i in found.flatten()}
+        if count:
+            out.append((name, count, sorted(ids)))
+    return sorted(out, key=lambda r: -r[1])
 
 
 @dataclass
@@ -167,3 +193,24 @@ def _find_dishes(gray, H, vis) -> list[tuple[float, float, float]]:
         out.append((float(centre[0]), float(centre[1]), float(np.linalg.norm(rim - centre))))
         cv2.circle(vis, (int(u), int(v)), int(r), (255, 200, 0), 1)
     return out
+
+
+if __name__ == "__main__":
+    import sys, time
+    if "--scan" in sys.argv:
+        idx = int(sys.argv[sys.argv.index("--scan") + 1]) if len(sys.argv) > sys.argv.index("--scan") + 1 else 1
+        cap = cv2.VideoCapture(idx)
+        frames, t0 = [], time.time()
+        print(f"Hold the marker paper in front of camera {idx}...")
+        while time.time() - t0 < 6:
+            ok, f = cap.read()
+            if ok:
+                frames.append(f)
+        cap.release()
+        if frames:
+            cv2.imwrite("marker_scan.png", frames[-1])
+        res = scan_dictionaries(frames[::3])
+        if not res:
+            print("No markers recognised. Saved marker_scan.png - check focus/lighting.")
+        for name, n, ids in res[:5]:
+            print(f"{name:24s} seen {n:4d} times, IDs {ids}")
