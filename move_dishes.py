@@ -21,7 +21,7 @@ LEARNED_FILE = Path(__file__).with_name("grip_learned.json")  # squeeze that wor
 SPOTS = ["1", "2", "A", "B"]
 
 
-def teach(arm, leader_port=None):
+def teach(arm, leader_port=None, only=None):
     spots = json.loads(SPOTS_FILE.read_text()) if SPOTS_FILE.exists() else {}
     stop, thread, leader = None, None, None
     if leader_port:
@@ -56,7 +56,7 @@ def teach(arm, leader_port=None):
         arm.robot.bus.disable_torque()
         print("Motors loose. For each spot: put the gripper around/at the dish rim height, jaws OPEN.")
     try:
-        for s in SPOTS:
+        for s in (only or SPOTS):
             input(f"  Gripper at spot {s}? Press Enter to save...")
             with getattr(arm, '_bus_lock', None) or __import__('contextlib').nullcontext():
                 spots[s] = arm.get_joints()
@@ -185,7 +185,7 @@ def run(arm, a):
             c.release()
     learned = json.loads(LEARNED_FILE.read_text()) if LEARNED_FILE.exists() else {}
 
-    for src, dst in [("1", "A"), ("2", "B")]:
+    for src, dst in [(p[0], p[1]) for p in a.pairs.split(",")]:
         S, D = spots[src], spots[dst]
         g_open, _ = grip_values(S)
         squeeze = learned.get(src, a.squeeze)
@@ -235,7 +235,7 @@ def run(arm, a):
     for c in (cap, judge):
         if c is not None:
             c.release()
-    print("Done: 1 -> A, 2 -> B")
+    print(f"Done: {a.pairs}")
 
 
 if __name__ == "__main__":
@@ -250,6 +250,8 @@ if __name__ == "__main__":
     ap.add_argument("--grip-force", type=float, default=35, help="gripper motor force limit %% (LeRobot default 50)")
     ap.add_argument("--judge-camera", type=int, default=-2, help="fixed judge camera index; -2 auto, -1 none")
     ap.add_argument("--attempts", type=int, default=2, help="grip tries per dish before skipping")
+    ap.add_argument("--only", nargs="+", help="teach only these spots, e.g. --only 1 A")
+    ap.add_argument("--pairs", default="1A,2B", help="moves to run, e.g. 1A or 1A,2B")
     ap.add_argument("--squeeze-step", type=float, default=4, help="extra squeeze %% after a failed grip")
     ap.add_argument("--stall-margin", type=float, default=1.0, help="gripper stops this far above target = holding")
     ap.add_argument("--lift", type=float, default=0.06)
@@ -272,7 +274,7 @@ if __name__ == "__main__":
     arm.connect()
     try:
         if a.mode == "teach":
-            teach(arm, leader_port)
+            teach(arm, leader_port, a.only)
         elif a.mode == "check":
             check(arm, a.spot)
         else:
