@@ -250,6 +250,29 @@ The user confirmed the camera will be fixed on the **left side** of the arm, not
 
 **Camera speed:** captures now ask for 30 fps with MJPG and a 1-frame buffer.
 
+## 16. Plates in 3D-printed holders, colour-based judging
+**Setup change:** dishes now sit in the 3D-printed plates: a **bright blue** one, which is the one used for teaching, and a **bright yellow** one. The robot should grab **around the square plate**, not the dish edge.
+
+**Keyboard problem:** Enter presses in the app's terminal often went to another tab, so a spot wasn't saved. **Workaround:** `save_spot.py <name>` stops the follow program (the white arm keeps holding its pose) and saves the arm's current pose. The user just says "at 1" / "at A" in chat.
+
+**Run 1 → A** (new spot 1, old A): the gripper closed to 18.9% with no contact; the plate wasn't picked.
+
+**`check 1` photo:** the gripper was at the far-left edge of the yellow plate, not around either plate.
+
+**Colour detection** (`find_plate`, OpenCV HSV threshold plus the largest blob):
+- Real-frame test: yellow plate at (87, 410), blue at (305, 367).
+- Far more reliable than circle detection for clear dishes.
+
+**Plate mode `--plate yellow|blue|none`** (default yellow):
+- The gripper opens to 100% to go around the 70 mm square, then closes until it stalls.
+- The side camera tracks the plate's colour before and after the grab: if it moved more than 25 px or disappeared, the grab worked.
+
+**Run 1 → A with `--plate blue`:**
+- The colour judge reported "blue plate did NOT move" (605, 358 → 604, 358), which is correct.
+- The plate had been moved to the right edge of the view since spot 1 was taught.
+
+**Conclusion:** the replay is only as good as the taught spots. The side camera isn't calibrated to arm coordinates, so it can **judge** but not yet **steer**. Re-teaching spots 1 and A where the plates are now is in progress.
+
 ---
 
 ## Open items / next steps
