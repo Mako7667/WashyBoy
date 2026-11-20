@@ -28,7 +28,8 @@ SETUP_FILE = Path(__file__).with_name("robot_setup.json")
 
 
 def load_setup() -> dict:
-    return json.loads(SETUP_FILE.read_text()) if SETUP_FILE.exists() else {}
+    # utf-8-sig: tolerate a byte-order mark (files saved by Windows PowerShell/Notepad)
+    return json.loads(SETUP_FILE.read_text(encoding="utf-8-sig")) if SETUP_FILE.exists() else {}
 
 
 def save_setup(d: dict):
