@@ -9,3 +9,6 @@ look.png
 markers_A4.png
 robot_setup.json
 table_markers.json
+seen_*.png
+spots_view.png
+marker_scan.png
