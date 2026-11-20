@@ -1,4 +1,4 @@
-"""
+﻿"""
 move_dishes.py - move the dish on spot 1 to A and the dish on spot 2 to B.
 
   python move_dishes.py teach   motors go loose; put the gripper (jaws OPEN) where it should
@@ -31,9 +31,20 @@ def teach(arm, leader_port=None):
         leader.connect()  # first time: runs LeRobot's leader calibration (needs a real console window)
         stop = threading.Event()
 
-        def mirror():
+        import logging
+        logging.getLogger("lerobot.robots.utils").setLevel(logging.ERROR)  # hide "clamped" spam
+        arm.robot.config.max_relative_target = 30.0  # less lag than 10, still safety-checked
+        arm._bus_lock = threading.Lock()  # saving a spot and following never use the bus at once
+
+        def mirror():  # follow the leader (no left/right flip)
             while not stop.is_set():
-                arm.robot.send_action(leader.get_action())
+                try:
+                    act = leader.get_action()
+                    with arm._bus_lock:
+                        arm.robot.send_action(act)
+                except Exception as e:  # a dropped USB packet must not stop following
+                    print(f"\n  (bus hiccup, retrying: {str(e)[:60]})")
+                    time.sleep(0.1)
                 time.sleep(1 / 30)
 
         thread = threading.Thread(target=mirror, daemon=True)
@@ -45,11 +56,13 @@ def teach(arm, leader_port=None):
     try:
         for s in SPOTS:
             input(f"  Gripper at spot {s}? Press Enter to save...")
-            spots[s] = arm.get_joints()
+            with getattr(arm, '_bus_lock', None) or __import__('contextlib').nullcontext():
+                spots[s] = arm.get_joints()
             SPOTS_FILE.write_text(json.dumps(spots, indent=2))
             print(f"    saved {s}")
         input("  Now put the arm in a safe resting pose clear of the dishes, press Enter (saved as 'rest')...")
-        spots["rest"] = arm.get_joints()
+        with getattr(arm, '_bus_lock', None) or __import__('contextlib').nullcontext():
+            spots["rest"] = arm.get_joints()
         SPOTS_FILE.write_text(json.dumps(spots, indent=2))
     finally:
         if stop is not None:
