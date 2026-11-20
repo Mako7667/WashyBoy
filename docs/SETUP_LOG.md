@@ -155,6 +155,29 @@ At the start, Python was not installed; only the Microsoft Store shortcut existe
 - **Guide:** `docs/TRAINING.md` (ACT and SmolVLA commands, and `lerobot-rollout` to run a trained policy).
 - **Planner end-to-end test** (synthetic image → vision → target choice → IK for each move): it chose the right plate and skipped the out-of-reach one. Every move was reachable after the hover cap.
 
+## 11. Team script: `Petri Dish Cleaner.py` → `petri_dish_cleaner.py`
+**What it is:** a wrist-camera routine (teach with a leader arm → visual-servo pick → wipe on a microfiber cloth → rack slots), with a grip check that detects a missed or dropped dish.
+
+**Read before running.** It could not move the arm as written:
+- **Import paths:** `lerobot.robots.so101_follower` / `lerobot.teleoperators.so101_leader` don't exist in LeRobot 0.7 (now `so_follower` / `so_leader`), and the fallback path doesn't exist either. **Fixed** in the repo copy.
+- **Calibration ID:** the default `--follower-id my_follower` would have started a new calibration. **Changed** to `petri_follower`.
+- **Poses file:** renamed to `cleaner_poses.json`, so it doesn't overwrite `petri_arm.py`'s `poses.json`.
+- **Not run on the arm:** `teach` needs a leader arm, and only one arm (COM5) is connected. `run` needs the poses that `teach` creates. Running `run` now would only connect, fail, and disconnect, which switches the torque off and drops the arm.
+
+**Verified offline:**
+- The script loads (`--help` works).
+- `detect_dish` found a synthetic dish at (353, 301) with radius 110 px; expected about (350, 300) and 100–110 px.
+
+**Design difference from `autonomous.py`:**
+
+| | This script | `autonomous.py` |
+|---|---|---|
+| Camera | Wrist-mounted | Overhead |
+| Teaching | 11 poses with a leader arm | 1 pose plus markers |
+| Gripping | Holds dishes by the rim | Holds the 70 mm plate |
+
+The two can coexist; which to use depends on where the camera is mounted.
+
 ---
 
 ## Open items / next steps
