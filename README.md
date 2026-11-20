@@ -31,6 +31,16 @@ The plate model is in `hardware/petri_plate_70x70x12.4mm.stl`.
 
 `download_assets.py` fetches [lerobot/svla_so101_pickplace](https://huggingface.co/datasets/lerobot/svla_so101_pickplace), Hugging Face's official SO-101 dataset: 50 pick-and-place episodes with 2 cameras at 30 fps. Its joint names match `petri_arm.py` exactly. Use it to test the training pipeline. A policy that actually handles petri dishes needs your own recordings (see "Next steps").
 
+## Camera-driven mode (recommended)
+
+The robot finds plates and stations with the camera; you teach only one pose. See **[docs/TRAINING.md](docs/TRAINING.md)**:
+1. `python make_markers.py`, then print `markers_A4.pdf` at 100%.
+2. `setup_wizard.bat`
+3. `autonomous.bat --dry-run`, then `autonomous.bat`
+4. `autonomous.bat --record` to collect training data, then `lerobot-train`.
+
+**Windows NumPy note:** if NumPy crashes with `0xc06d007f` after installing placo, run `conda install -n lerobot -c conda-forge "libopenblas=*=pthreads*" "libblas=*=*openblas"`.
+
 ## Quick launchers (Windows, already set up on this PC)
 
 - `check_arm.bat` runs a read-only test of all 6 motors and tells you which cable to check.

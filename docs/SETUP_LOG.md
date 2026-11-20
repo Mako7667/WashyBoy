@@ -118,10 +118,49 @@ At the start, Python was not installed; only the Microsoft Store shortcut existe
 - **To give teammates access:** on GitHub, open the repo's **Settings → Collaborators → Add people**.
 - **Made the repository public** at the user's request, with `gh repo edit --visibility public`. Before that, the repo was scanned for tokens, passwords and email addresses; none were found. It is now at https://github.com/Mako7667/WashyBoy. Anyone can read and clone it; only collaborators can push.
 
+## 10. Camera-driven control and training pipeline
+**Goal:** the robot decides where to go from the camera, not from hand-taught positions.
+
+- **Cameras found:** only the laptop's built-in webcam (index 0). **A USB robot camera is still needed.**
+
+**`vision.py` (OpenCV ArUco + contours):**
+- Table markers 0–3 give a fresh pixel→table mapping every frame, so the camera re-aligns itself if bumped. With only 3 markers visible, it falls back to an affine mapping.
+- Station markers: 10 is the cleaning station, 11 is the clean stack.
+- Plates are found as ~70 mm squares, with position and angle. Dishes are found as circles.
+- **Bug fixed during testing:** the table's own outline hid every plate, because only the outermost shapes were being searched. Fixed by searching all shapes and removing duplicates.
+- **Synthetic test** (camera at an angle): plate positions within 1 mm, angles within 2°, stations exact.
+
+**Top-down picking (`petri_arm.py`):**
+- `solve_down`, `move_down_to`, `pick_plate`, `place_plate`, `look`, `in_pick_zone`.
+- **Bug fixed:** the first "pointing down" reference pose was wrong (the gripper's sideways axis pointed down, not its approach axis). The URDF search found the right one: wrist_flex about +80°.
+- **Bug fixed:** the jaw-angle convention was off by 180°, and the wrist-roll direction was guessed. Now it's measured from the URDF.
+- **Result (40 random targets):** position median 0.16 mm, jaw angle exact, tilt median 4.8°, wrist roll ≤ 48°.
+- **Reach map:** top-down works 14–30 cm from the base, up to about 8.5 cm high. Hover height is capped to stay reachable, so a stack is limited to about 5 plates.
+
+**Environment fix: NumPy matrix maths crashed** (`0xc06d007f`, a missing function in a library file). Installing placo had switched NumPy to an Intel MKL version that didn't match. **Fix:** switched to OpenBLAS (pthreads build); the OpenMP build clashed with PyTorch's own OpenMP.
+
+**Other new pieces:**
+- **Autonomous loop** (`autonomous.py`): park → look → pick the nearest dirty plate → scrub at marker 10 → stack at marker 11 → check with the camera that the plate actually moved → repeat. Options: `--dry-run`, `--max`, `--record`.
+- **Setup wizard** (`setup_wizard.py`): pick the camera, teach only `home`, touch the 4 table markers (which also measures table height), live check.
+- **Marker sheet** (`make_markers.py`): `markers_A4.pdf` with six 40 mm markers.
+
+**Training data recorder** (`recorder.py`):
+- Saves each successful autonomous cycle as a LeRobot episode (camera video, joint state, action, 30 fps); failed cycles are discarded; later sessions add to the same dataset.
+- **Tested** with fake frames: 3 episodes and 50 frames, as expected; it reloads correctly.
+
+**Training pipeline:**
+- Installed `lerobot[training]` (needed for `accelerate`).
+- `--wandb.enable` no longer exists in LeRobot 0.7; the replacement is `--trackio.enable`.
+- **Smoke test:** a 2-step ACT run on the CPU with `lerobot/svla_so101_pickplace` trained and saved the model (loss 77.9 → 70.5). The `checkpoints/last` symlink then failed with WinError 1314, because Windows needs Developer Mode for symlinks. The workaround (use the step-numbered folder) is documented.
+- **Guide:** `docs/TRAINING.md` (ACT and SmolVLA commands, and `lerobot-rollout` to run a trained policy).
+- **Planner end-to-end test** (synthetic image → vision → target choice → IK for each move): it chose the right plate and skipped the out-of-reach one. Every move was reachable after the hover cap.
+
 ---
 
 ## Open items / next steps
-1. **Teach poses** with `PetriArm.teach()`: `home`, `above_stack`, `above_clean_station`, `clean_station`.
-2. **Mount the camera** and run `calibrate_camera.py`.
-3. **Test** `example_pick_and_clean.py` with one plate.
-4. **Optional, for an AI policy:** get an SO-101 leader arm, record about 50 petri-dish runs with `lerobot-record`, and fine-tune SmolVLA. This needs an NVIDIA GPU.
+1. **Get a USB camera** and mount it above the work area, looking down.
+2. **Print `markers_A4.pdf`** at 100% and check that a black square measures 40 mm. Tape the markers down.
+3. **Run `setup_wizard.bat`.**
+4. **Check the gripper:** can it open to grip the 70 mm plate?
+5. **Run `autonomous.bat --dry-run`,** then `--max 1`.
+6. **Run `autonomous.bat --record`** to collect 50–100 episodes, then train on a GPU (`docs/TRAINING.md`).
