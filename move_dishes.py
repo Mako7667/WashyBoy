@@ -1,4 +1,4 @@
-"""
+﻿"""
 move_dishes.py - move the dish on spot 1 to A and the dish on spot 2 to B.
 
   python move_dishes.py teach   motors go loose; put the gripper (jaws OPEN) where it should
@@ -19,7 +19,7 @@ SPOTS_FILE = Path(__file__).with_name("dish_spots.json")
 SPOTS = ["1", "2", "A", "B"]
 
 
-def teach(arm, leader_port=None):
+def teach(arm, leader_port=None, mirror=False, hz=60):
     spots = json.loads(SPOTS_FILE.read_text()) if SPOTS_FILE.exists() else {}
     stop, thread, leader = None, None, None
     if leader_port:
@@ -31,14 +31,23 @@ def teach(arm, leader_port=None):
         leader.connect()  # first time: runs LeRobot's leader calibration (needs a real console window)
         stop = threading.Event()
 
-        def mirror():
-            while not stop.is_set():
-                arm.robot.send_action(leader.get_action())
-                time.sleep(1 / 30)
+        # Responsive following: relax the per-command safety clamp while a human drives it.
+        arm.robot.config.max_relative_target = 25.0
+        flip = ("shoulder_pan.pos", "wrist_roll.pos") if mirror else ()
 
-        thread = threading.Thread(target=mirror, daemon=True)
+        def follow():
+            while not stop.is_set():
+                t0 = time.perf_counter()
+                act = leader.get_action()
+                for k in flip:  # mirror image: arms facing each other
+                    act[k] = -act[k]
+                arm.robot.send_action(act)
+                time.sleep(max(0.0, 1 / hz - (time.perf_counter() - t0)))
+
+        thread = threading.Thread(target=follow, daemon=True)
         thread.start()
-        print("White arm now follows the BLACK leader arm. Move the black arm to each spot.")
+        print(f"White arm now follows the BLACK leader arm at {hz} Hz"
+              f"{' (MIRRORED left/right)' if mirror else ''}. Move the black arm to each spot.")
     else:
         arm.robot.bus.disable_torque()
         print("Motors loose. For each spot: put the gripper around/at the dish rim height, jaws OPEN.")
@@ -142,6 +151,8 @@ if __name__ == "__main__":
     ap.add_argument("--camera", type=int, default=1, help="wrist camera index; -1 = no camera")
     ap.add_argument("--ignore-camera", action="store_true", help="grab even if no dish is seen")
     ap.add_argument("--leader", nargs="?", const="auto", help="teach with the black leader arm (port or auto)")
+    ap.add_argument("--mirror", action="store_true", help="flip left/right (arms facing each other)")
+    ap.add_argument("--hz", type=int, default=60, help="leader-follow update rate")
     a = ap.parse_args()
     leader_port = a.leader
     if leader_port == "auto":
@@ -155,6 +166,6 @@ if __name__ == "__main__":
     arm.robot.config.disable_torque_on_disconnect = (a.mode == "teach")  # after run: keep holding
     arm.connect()
     try:
-        teach(arm, leader_port) if a.mode == "teach" else run(arm, a)
+        teach(arm, leader_port, a.mirror, a.hz) if a.mode == "teach" else run(arm, a)
     finally:
         arm.disconnect()
