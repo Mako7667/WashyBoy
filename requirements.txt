@@ -1,0 +1,3 @@
+lerobot[feetech,dataset]
+opencv-python
+numpy

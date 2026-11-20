@@ -1,0 +1,8 @@
+# Downloaded / generated - re-fetch instead of committing
+data/
+outputs/
+SO-ARM100/
+__pycache__/
+*.pyc
+frame.png
+look.png
