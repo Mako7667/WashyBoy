@@ -214,6 +214,42 @@ The user confirmed the camera will be fixed on the **left side** of the arm, not
 - **Offline test** (two 90 mm clear dishes on a dark mat, angled camera): both detected, the nearest chosen, centre within about 7 mm.
 - **Setup advice for dishes:** raise table markers 0–3 by taping them onto upside-down spare dishes (removes parallax; answer "y" in the wizard). Put a dark mat under the work area.
 
+## 15. Hand-taught dish moves (1 → A, 2 → B), leader arm, grip tuning
+**Task:** the user switched to moving real petri dishes from spot 1 to A and spot 2 to B, marked on paper. Hand-taught positions are the main guide; the cameras are secondary.
+
+**`move_dishes.py`:**
+- `teach`: motors loose, or `--leader` so the black SO-101 leader on COM6 drives the white follower.
+- `run`: 6 cm straight-up lifts computed with IK from the taught poses.
+- `check <spot>`: goes to a spot's grip pose and holds there.
+
+**Black leader arm:**
+- Plugged in on COM6, all 6 motors answer.
+- Calibrated with LeRobot. It was recalibrated once after the follower's elbow kept stopping at its range limit (−107°) while the leader asked for −117°.
+
+**Follow loop (leader → follower) bugs and fixes:**
+- At 60 Hz with LeRobot's safety read on every command, the serial bus timed out ("motor 1: Operation timed out") and the follow thread died.
+- The user asked to roll back to the 30 Hz version. Then improved it: 30° clamp (less lag), clamp warnings hidden, retry on bus errors, and a lock so saving a spot and following never use the bus at once.
+- Mirror mode was added, made the default, then turned off again at the user's request. It's now `--mirror`, off by default.
+
+**Motor tools:** `release_motors.py` / `lock_motors.py` turn torque off, or hold the current pose with no jump (goal position set to the present position before torque is turned on).
+
+**First run:** completed the full path 1 → A, 2 → B. The user reported "it works, but grips too hard": the closed target was 20% with LeRobot's 50% force limit.
+
+**Grip changes:**
+- Gripper force limit lowered (`Max_Torque_Limit`; 25%, then 35%).
+- Closing based on the taught opening; slow close.
+- **Gripper judge:** if the gripper stops above its target, it's holding something.
+- Retry with more squeeze; the squeeze that worked is saved to `grip_learned.json`.
+
+**Diagnosis using the side camera (index 2):**
+- **"Camera 0" is a placeholder:** it only shows a "camera disabled" image. Such cameras are now skipped (frame standard deviation ≤ 12). Only camera 2 delivered real images; a second camera wasn't working.
+- **Hough circle detection is unreliable** for clear dishes on white paper (false circles on cables). Added CLAHE, dish-sized radii, and ignoring the top third of the frame. Even so, the camera only reports; it never skips a move.
+- **`check 1` photo:** the taught grip pose puts the fixed jaw just inside the dish rim, so this is a **rim pinch**. It needs the gripper nearly closed.
+- **Run with `--closed 2`:** the gripper reached 2.6% / 2.8% with no stall, so it still felt no contact. The dishes were not lifted.
+- **Open:** jaw position relative to the rim. The user is adding tape to the gripper for more grip, and the camera was repositioned.
+
+**Camera speed:** captures now ask for 30 fps with MJPG and a 1-frame buffer.
+
 ---
 
 ## Open items / next steps

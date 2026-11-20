@@ -12,3 +12,6 @@ table_markers.json
 seen_*.png
 spots_view.png
 marker_scan.png
+check_spot*.png
+after_run.png
+grip_learned.json
