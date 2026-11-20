@@ -208,6 +208,12 @@ The user confirmed the camera will be fixed on the **left side** of the arm, not
 - **Run 2:** same result, within 0.4°.
 - **Loop mode** (`--loops 0`, stop with Ctrl+C): gripper move slowed to 2.5 s, now reaches 59.6%. Loop 1 returned within 0.5°.
 
+## 14. Wizard fix and dish-only mode
+- **Wizard crash:** `JSONDecodeError` when reading `robot_setup.json`. **Cause:** I wrote the file from PowerShell, which added an invisible UTF-8 byte-order mark. **Fix:** the file was rewritten without it, and the wizard now reads with `utf-8-sig`, which accepts either form.
+- **The plates are still printing,** so the user wants to move and stack the petri dishes directly. **New `stack_dishes.py` / `.bat`:** the camera finds round dishes (40–110 mm) → the arm picks the nearest reachable one with a whole-dish grip from above → places it on stack marker 11 at level × dish height → the camera checks that the dish moved → repeat. Options: `--dry-run`, `--max`, `--dish-height`, `--grip-open/closed/depth`, `--record`.
+- **Offline test** (two 90 mm clear dishes on a dark mat, angled camera): both detected, the nearest chosen, centre within about 7 mm.
+- **Setup advice for dishes:** raise table markers 0–3 by taping them onto upside-down spare dishes (removes parallax; answer "y" in the wizard). Put a dark mat under the work area.
+
 ---
 
 ## Open items / next steps
